@@ -1,0 +1,30 @@
+---
+abstract: 'Detects unused variables'
+author:
+  - 'Goro Fuji (gfx) <gfuji(at)cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  Test::More: 0.88
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 0.95'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+module_name: Test::Vars
+name: Test-Vars
+no_index:
+  directory:
+    - example
+    - inc
+    - t
+    - xt
+requires:
+  B: 0
+  parent: 0
+  perl: 5.10.0
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.001
