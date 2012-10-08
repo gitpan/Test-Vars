@@ -3,19 +3,17 @@ use 5.010_000;
 use strict;
 use warnings;
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 our @EXPORT = qw(all_vars_ok vars_ok);
 
 use parent qw(Test::Builder::Module);
+
 use B ();
-
 use ExtUtils::Manifest qw(maniread);
-
 use Symbol qw(qualify_to_ref);
 
-use constant _VERBOSE => ($ENV{TEST_VERBOSE} || 0);
-
+use constant _VERBOSE       => ($ENV{TEST_VERBOSE} || 0);
 use constant _OPpLVAL_INTRO => 128;
 
 #use Devel::Peek;
@@ -93,7 +91,7 @@ sub _check_vars {
 
     # ensure library loaded
     {
-        local $SIG{__WARN__} = sub{}; # ignore warnings
+        local $SIG{__WARN__} = sub{ }; # ignore warnings
 
         # set PERLDB flags; see also perlvar
         local $^P = $^P | 0x200; # NAMEANON
@@ -106,13 +104,14 @@ sub _check_vars {
 
         if($@){
             $@ =~ s/\n .*//xms;
-            $builder->diag("IGNORE $file because: $@");
+            $builder->diag("Test::Vars ignores $file because: $@");
             return 1;
         }
     }
 
-    $builder->note("checking $file ...") if _VERBOSE;
-    return _check_into_stash($builder, *{qualify_to_ref('', $package)}{HASH}, $file, $args);
+    $builder->note("checking $package in $file ...") if _VERBOSE;
+    return _check_into_stash($builder,
+        *{qualify_to_ref('', $package)}{HASH}, $file, $args);
 }
 
 sub _check_into_stash {
@@ -122,22 +121,22 @@ sub _check_into_stash {
     while(my $key = each %{$stash}){
         my $ref = \$stash->{$key};
 
-        if(ref $ref eq 'GLOB'){
-            my $gv = B::svref_2object($ref);
+        next if ref($ref) ne 'GLOB';
 
-            my $hashref = *{$ref}{HASH};
-            my $coderef = *{$ref}{CODE};
+        my $gv = B::svref_2object($ref);
 
-            if(($hashref || $coderef) && $gv->FILE =~ /\Q$file\E\z/xms){
-                if($hashref && B::svref_2object($hashref)->NAME){ # stash
-                    if(not _check_into_stash($builder, $hashref, $file, $args)){
-                        $fail++;
-                    }
+        my $hashref = *{$ref}{HASH};
+        my $coderef = *{$ref}{CODE};
+
+        if(($hashref || $coderef) && $gv->FILE =~ /\Q$file\E\z/xms){
+            if($hashref && B::svref_2object($hashref)->NAME){ # stash
+                if(not _check_into_stash($builder, $hashref, $file, $args)){
+                    $fail++;
                 }
-                elsif($coderef){
-                    if(not _check_into_code($builder, $coderef, $args)){
-                        $fail++;
-                    }
+            }
+            elsif($coderef){
+                if(not _check_into_code($builder, $coderef, $args)){
+                    $fail++;
                 }
             }
         }
@@ -161,27 +160,27 @@ sub _check_into_code {
     my $fail = 0;
 
     while(my(undef, $cv_info) = each %info){
-        my $pad    = $cv_info->{pad};
+        my $pad = $cv_info->{pad};
 
-        $builder->note($cv_info->{name}) if _VERBOSE > 1;
+        $builder->note("looking into $cv_info->{name}") if _VERBOSE > 1;
 
         foreach my $p(@{$pad}){
-            if(defined $p && !$p->{outside}){
-                if($p->{count} ~~ 0){
-                    next if $args->{ignore_vars}{$p->{name}};
+            next if !( defined $p && !$p->{outside} );
 
-                    if(my $cb = $args->{ignore_if}){
-                        local $_ = $p->{name};
-                        next if $cb->($_);
-                    }
+            if($p->{count} ~~ 0){
+                next if $args->{ignore_vars}{$p->{name}};
 
-                    my $c = $p->{context} || '';
-                    $builder->diag("$p->{name} is used once in $cv_info->{name} $c");
-                    $fail++;
+                if(my $cb = $args->{ignore_if}){
+                    local $_ = $p->{name};
+                    next if $cb->($_);
                 }
-                elsif(_VERBOSE > 1){
-                    $builder->note("$p->{name} is used $p->{count} times");
-                }
+
+                my $c = $p->{context} || '';
+                $builder->diag("$p->{name} is used once in $cv_info->{name} $c");
+                $fail++;
+            }
+            elsif(_VERBOSE > 1){
+                $builder->note("$p->{name} is used $p->{count} times");
             }
         }
     }
@@ -196,9 +195,13 @@ my $op_enteriter;
 my $op_entereval; # string eval
 my @op_svusers;
 BEGIN{
-    foreach my $op(qw(padsv padav padhv aelemfast)){
+    foreach my $op(qw(padsv padav padhv)){
         $padops[B::opnumber($op)]++;
     }
+    # blead commit 93bad3fd55489cbd split aelemfast into two ops.
+    # Prior to that, 'aelemfast' handled lexicals too.
+    my $aelemfast = B::opnumber('aelemfast_lex');
+    $padops[$aelemfast == -1 ? B::opnumber('aelemfast') : $aelemfast]++;
 
     $op_anoncode = B::opnumber('anoncode');
     $padops[$op_anoncode]++;
@@ -306,23 +309,20 @@ sub _count_padvars {
             # my($var) = @_;
             #    ^^^^     padsv/non-void context
             #          ^  sassign/void context
-            my $o = $op->next;
-            while(${$o} && ref($o) ne 'B::COP'){
-                if($op_svusers[$o->type]){
-                    if(($o->flags & B::OPf_WANT) == B::OPf_WANT_VOID){
-                        if(_ckwarn_once($cop)){
-                            $p->{context} = sprintf 'at %s line %d', $cop->file, $cop->line;
-                            return;
-                        }
-                    }
-                }
+            for(my $o = $op->next; ${$o} && ref($o) ne 'B::COP'; $o = $o->next){
+                next if !$op_svusers[ $o->type ];
+                next if( ($o->flags & B::OPf_WANT ) != B::OPf_WANT_VOID );
 
-                $o = $o->next;
+                if(_ckwarn_once($cop)){
+                    $p->{context} = sprintf 'at %s line %d',
+                        $cop->file, $cop->line;
+                    return; # unused, but ok
+                }
             }
         }
 
         $p->{count}++;
-    };
+    }; # end _scan_unused_vars()
 
     my $name = sprintf('&%s::%s', $cv->GV->STASH->NAME, $cv->GV->NAME);
 
@@ -417,6 +417,10 @@ is different.
 While C<Perl::Critic>, the backend of C<Test::Perl::Critic>, scans the source
 code as texts, this modules scans the compiled opcodes (or AST: abstract syntax
 tree) using the C<B> module. See also C<B> and its submodules.
+
+=head1 CONFIGURATION
+
+C<TEST_VERBOSE = 1 | 2 > shows the way this module works.
 
 =head1 DEPENDENCIES
 

@@ -22,6 +22,7 @@ t/lib/Aelemfast.pm
 t/lib/Closure.pm
 t/lib/CompileError.pm
 t/lib/Foreach.pm
+t/lib/ImplicitTopic.pm
 t/lib/NotWarned.pm
 t/lib/NoWarnings.pm
 t/lib/NoWarningsOnce.pm
