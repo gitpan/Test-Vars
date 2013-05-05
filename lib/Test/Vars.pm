@@ -3,7 +3,7 @@ use 5.010_000;
 use strict;
 use warnings;
 
-our $VERSION = '0.003';
+our $VERSION = '0.004';
 
 our @EXPORT = qw(all_vars_ok vars_ok);
 
@@ -167,7 +167,7 @@ sub _check_into_code {
         foreach my $p(@{$pad}){
             next if !( defined $p && !$p->{outside} );
 
-            if($p->{count} ~~ 0){
+            if(! $p->{count}){
                 next if $args->{ignore_vars}{$p->{name}};
 
                 if(my $cb = $args->{ignore_if}){
@@ -365,7 +365,7 @@ Test::Vars - Detects unused variables
 
 =head1 VERSION
 
-This document describes Test::Vars version 0.003.
+This document describes Test::Vars version 0.004.
 
 =head1 SYNOPSIS
 
@@ -421,6 +421,12 @@ tree) using the C<B> module. See also C<B> and its submodules.
 =head1 CONFIGURATION
 
 C<TEST_VERBOSE = 1 | 2 > shows the way this module works.
+
+=head1 CAVEATS
+
+https://rt.cpan.org/Ticket/Display.html?id=60018
+
+https://rt.cpan.org/Ticket/Display.html?id=82411
 
 =head1 DEPENDENCIES
 

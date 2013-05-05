@@ -28,7 +28,7 @@ no_index:
 provides:
   Test::Vars:
     file: lib/Test/Vars.pm
-    version: 0.003
+    version: 0.004
 requires:
   B: 0
   parent: 0
@@ -37,7 +37,7 @@ resources:
   bugtracker: https://github.com/gfx/p5-Test-Vars/issues
   homepage: https://github.com/gfx/p5-Test-Vars
   repository: git://github.com/gfx/p5-Test-Vars.git
-version: 0.003
+version: 0.004
 x_contributors:
   - 'Nicholas Clark <nick@ccl4.org>'
   - 'Olivier MenguÃ© <dolmen@cpan.org>'
