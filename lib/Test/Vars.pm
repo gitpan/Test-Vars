@@ -3,7 +3,7 @@ use 5.010_000;
 use strict;
 use warnings;
 
-our $VERSION = '0.004';
+our $VERSION = '0.005';
 
 our @EXPORT = qw(all_vars_ok vars_ok);
 
@@ -30,6 +30,10 @@ sub all_vars_ok {
     }
     my $manifest = maniread();
     my @libs    = grep{ m{\A lib/ .* [.]pm \z}xms } keys %{$manifest};
+
+    if (! @libs) {
+        $builder->plan(skip_all => "not lib/");
+    }
 
     $builder->plan(tests => scalar @libs);
 
@@ -365,7 +369,7 @@ Test::Vars - Detects unused variables
 
 =head1 VERSION
 
-This document describes Test::Vars version 0.004.
+This document describes Test::Vars version 0.005.
 
 =head1 SYNOPSIS
 
